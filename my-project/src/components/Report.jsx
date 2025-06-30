@@ -147,9 +147,11 @@ export default function Report() {
   const getChangelogRows = () => filteredChangelogs.map((log) => ({ Campaign: log.campaignId?.campaignName || '', User: log.userName || log.userId?.name || '', Email: log.userEmail, ChangeType: log.changeType, Previous: JSON.stringify(log.previousValue), New: JSON.stringify(log.newValue), Date: dayjs(log.createdAt).format('DD MMM YYYY HH:mm'), }));
 
   return (
-    <div className="bg-[#fafafb] min-h-screen text-black flex flex-col">
+    // --- FIX 1: Corrected the root div to match other dashboards for consistent layout ---
+    <div className="bg-[#fafafb] min-h-screen w-screen text-black flex flex-col lg:flex-row">
       <Navbar />
-      <main className="flex-1 h-full overflow-y-auto px- md:px-6 py-6 ml-0  lg:ml-64 ">
+      {/* --- FIX 2: Corrected the <main> tag's padding typo and inconsistent values --- */}
+      <main className="flex-1 h-full overflow-y-auto px-4 md:px-6 py-6 ml-0 lg:ml-64">
         <h2 className="text-2xl font-sans mb-6">Reports Dashboard</h2>
 
         {/* --- Static Charts Section (Unchanged) --- */}

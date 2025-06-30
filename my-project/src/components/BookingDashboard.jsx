@@ -2,10 +2,64 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
-import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
+import toast from 'react-hot-toast';
 
+// Import react-date-range and its CSS
+import { DateRange } from 'react-date-range';
+import 'react-date-range/dist/styles.css'; // main style file
+import 'react-date-range/dist/theme/default.css'; // theme css file
+
+
+// --- DATE FILTER COMPONENT (UPDATED) ---
+const DateRangeFilter = ({ initialFilter, onApply, onCancel }) => {
+    const [tempRange, setTempRange] = useState([{
+        startDate: initialFilter.startDate ? new Date(initialFilter.startDate) : new Date(),
+        endDate: initialFilter.endDate ? new Date(initialFilter.endDate) : new Date(),
+        key: 'selection'
+    }]);
+
+    const handleApplyClick = () => {
+        const { startDate, endDate } = tempRange[0];
+        
+        if (!startDate || !endDate) {
+            toast.error("Please select a valid date range.");
+            return;
+        }
+
+        const formatDate = (date) => date.toISOString().split('T')[0];
+
+        onApply({
+            type: 'static',
+            label: `${formatDate(startDate)} to ${formatDate(endDate)}`,
+            startDate: formatDate(startDate),
+            endDate: formatDate(endDate),
+        });
+    };
+
+    return (
+        <div className="flex flex-col p-2">
+            <DateRange
+                editableDateInputs={true}
+                onChange={item => setTempRange([item.selection])}
+                moveRangeOnFirstSelection={false}
+                ranges={tempRange}
+                // UPDATED: Changed color to blue to match inventory page
+                rangeColors={['#3b82f6']}
+                months={1}
+                direction="horizontal"
+                className="static-date-range"
+            />
+            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+                <button onClick={onCancel} className="px-4 py-1.5 rounded-md bg-gray-200 text-black hover:bg-gray-300 font-medium text-sm">Cancel</button>
+                {/* UPDATED: Changed button color to blue */}
+                <button onClick={handleApplyClick} className="px-4 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-medium text-sm">Apply</button>
+            </div>
+        </div>
+    );
+};
+
+
+// --- OTHER HELPER COMPONENTS (No changes needed) ---
 const Input = ({ className = '', ...props }) => (
   <input className={`border border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 px-3 py-2 rounded-md w-full ${className}`} {...props} />
 );
@@ -36,11 +90,9 @@ export default function BookingsDashboard() {
   const perPage = 10;
   
   const [search, setSearch] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  
   const [showDateModal, setShowDateModal] = useState(false);
-  const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]);
-  const [tempDateRange, setTempDateRange] = useState(dateRange);
+  const [dateFilter, setDateFilter] = useState({ type: 'allTime', label: 'All time', startDate: null, endDate: null });
 
   const statusFilter = useMemo(() => {
     const params = new URLSearchParams(location.search);
@@ -52,8 +104,14 @@ export default function BookingsDashboard() {
       const token = localStorage.getItem('accessToken');
       if (!token) { navigate('/login'); return; }
       try {
-        const params = new URLSearchParams({ page: currentPage, limit: perPage, search: search, ...(statusFilter && { status: statusFilter }), ...(startDate && endDate && { startDate, endDate }), });
-        // Note: The API must return clientContactNumber, clientType, and the campaigns array for each booking.
+        const params = new URLSearchParams({ 
+            page: currentPage, 
+            limit: perPage, 
+            search: search, 
+            ...(statusFilter && { status: statusFilter }),
+            ...(dateFilter.startDate && { startDate: dateFilter.startDate }),
+            ...(dateFilter.endDate && { endDate: dateFilter.endDate }),
+        });
         const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/bookings/optimized?${params.toString()}`;
         const response = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
         if (response.status === 401 || response.status === 403) { localStorage.clear(); navigate('/login'); return; }
@@ -63,18 +121,27 @@ export default function BookingsDashboard() {
       } catch (error) { console.error('Error fetching bookings:', error); }
     };
     fetchBookings();
-  }, [search, currentPage, navigate, statusFilter, startDate, endDate]);
+  }, [search, currentPage, navigate, statusFilter, dateFilter]);
   
-  const handleCancelDateFilter = useCallback(() => { setTempDateRange(dateRange); setShowDateModal(false); }, [dateRange]);
+  const handleApplyDateFilter = (newFilter) => {
+    setDateFilter(newFilter);
+    setShowDateModal(false);
+  }
+  const handleCancelDateFilter = () => {
+    setShowDateModal(false);
+  }
 
   useEffect(() => {
-      function handleClickOutside(event) { if (datePickerRef.current && !datePickerRef.current.contains(event.target)) { handleCancelDateFilter(); } }
-      document.addEventListener("mousedown", handleClickOutside);
+      function handleClickOutside(event) { 
+          if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+               setShowDateModal(false); 
+          } 
+      }
+      if (showDateModal) {
+          document.addEventListener("mousedown", handleClickOutside);
+      }
       return () => { document.removeEventListener("mousedown", handleClickOutside); };
-  }, [datePickerRef, handleCancelDateFilter]);
-
-  const formatDateForAPI = (date) => { if (!date) return ''; const adjustedDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)); return adjustedDate.toISOString().split('T')[0]; }
-  const handleApplyDateFilter = () => { setDateRange(tempDateRange); setStartDate(formatDateForAPI(tempDateRange[0].startDate)); setEndDate(formatDateForAPI(tempDateRange[0].endDate)); setShowDateModal(false); }
+  }, [showDateModal]);
   
   const sortedData = useMemo(() => {
     let itemsWithDetails = bookings.map(booking => {
@@ -86,14 +153,10 @@ export default function BookingsDashboard() {
         if (booking.campaigns && booking.campaigns.length > 0) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-
-            // Upcoming dates logic
             const futureStartDates = booking.campaigns.map(c => c.startDate ? new Date(c.startDate) : null).filter(date => date && date >= today).sort((a, b) => a - b);
             if (futureStartDates.length > 0) upcomingCampaignStartDate = futureStartDates[0];
             const futureEndDates = booking.campaigns.map(c => c.endDate ? new Date(c.endDate) : null).filter(date => date && date >= today).sort((a, b) => a - b);
             if (futureEndDates.length > 0) upcomingCampaignEndDate = futureEndDates[0];
-
-            // Calculate Total Price
             if (!booking.isFOCBooking) {
                 totalPrice = booking.campaigns.reduce((sum, c) => {
                     const paid = c.pipeline?.payment?.totalPaid || 0;
@@ -101,8 +164,6 @@ export default function BookingsDashboard() {
                     return sum + paid + due;
                 }, 0);
             }
-
-            // Get Associated Campaigns
             associatedCampaigns = booking.campaigns.map(c => c.campaignName || 'Unnamed').join(', ');
         }
         return { ...booking, upcomingCampaignStartDate, upcomingCampaignEndDate, totalPrice, associatedCampaigns };
@@ -113,7 +174,7 @@ export default function BookingsDashboard() {
         if (sortConfig.key === 'upcomingCampaignStartDate' || sortConfig.key === 'upcomingCampaignEndDate') {
             const dateA = a[sortConfig.key]; const dateB = b[sortConfig.key];
             if (dateA === null) return 1; if (dateB === null) return -1;
-            return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
+            return sortConfig.direction === 'asc' ? dateA - dateB : dateB - a;
         }
         if (sortConfig.key === 'totalPrice') {
             return sortConfig.direction === 'asc' ? a.totalPrice - b.totalPrice : b.totalPrice - a.totalPrice;
@@ -146,16 +207,20 @@ export default function BookingsDashboard() {
         <div className="mb-6 flex flex-wrap gap-4 items-center">
             <Input className="md:w-1/3 h-10" placeholder="Search by company, client..." value={search} onChange={(e) => setSearch(e.target.value)} />
              <div className="relative">
-                <button onClick={() => setShowDateModal(!showDateModal)} className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 h-10 w-full sm:w-auto text-left text-sm" >
-                    {startDate && endDate ? `${formatDate(startDate)} to ${formatDate(endDate)}` : "Filter by Booking Date"}
+                <button 
+                    onClick={() => setShowDateModal(true)} 
+                    className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 h-10 w-full sm:w-auto text-left text-sm"
+                >
+                    <span className="text-gray-500 mr-2">Date range:</span>
+                    <span className="font-medium">{dateFilter.label}</span>
                 </button>
                 {showDateModal && (
-                    <div ref={datePickerRef} className="absolute top-full mt-2 z-20 bg-white rounded-xl shadow-lg border p-2">
-                        <DateRange editableDateInputs={true} onChange={item => setTempDateRange([item.selection])} moveRangeOnFirstSelection={false} ranges={tempDateRange} rangeColors={['#0f172a']} months={1} direction="horizontal" />
-                        <div className="flex justify-end gap-2 p-2 border-t">
-                            <button onClick={handleCancelDateFilter} className="px-4 py-1.5 rounded-md bg-gray-200 text-black hover:bg-gray-300 font-medium text-sm">Cancel</button>
-                            <button onClick={handleApplyDateFilter} className="px-4 py-1.5 rounded-md bg-black text-white hover:bg-gray-800 font-medium text-sm">Apply</button>
-                        </div>
+                    <div ref={datePickerRef} className="absolute top-full mt-2 z-20 bg-white rounded-xl shadow-lg border">
+                        <DateRangeFilter
+                            initialFilter={dateFilter}
+                            onApply={handleApplyDateFilter}
+                            onCancel={handleCancelDateFilter}
+                        />
                     </div>
                 )}
             </div>
@@ -171,13 +236,11 @@ export default function BookingsDashboard() {
                       <SortableHeader columnKey="_id" sortConfig={sortConfig} setSortConfig={setSortConfig}>Booking ID</SortableHeader>
                       <SortableHeader columnKey="companyName" sortConfig={sortConfig} setSortConfig={setSortConfig}>Company Name</SortableHeader>
                       <SortableHeader columnKey="clientName" sortConfig={sortConfig} setSortConfig={setSortConfig}>Client Name</SortableHeader>
-                      {/* ADDED COLUMNS */}
                       <SortableHeader columnKey="clientContactNumber" sortConfig={sortConfig} setSortConfig={setSortConfig}>Client Contact</SortableHeader>
                       <SortableHeader columnKey="clientType" sortConfig={sortConfig} setSortConfig={setSortConfig}>Client Type</SortableHeader>
                       <SortableHeader columnKey="associatedCampaigns" sortConfig={sortConfig} setSortConfig={setSortConfig}>Associated Campaigns</SortableHeader>
                       <SortableHeader columnKey="totalPrice" sortConfig={sortConfig} setSortConfig={setSortConfig}>Booking Price</SortableHeader>
                       <SortableHeader columnKey="createdAt" sortConfig={sortConfig} setSortConfig={setSortConfig}>Booking Date</SortableHeader>
-                      {/* ADDED COLUMNS */}
                       <SortableHeader columnKey="upcomingCampaignStartDate" sortConfig={sortConfig} setSortConfig={setSortConfig}>Upcoming Start</SortableHeader>
                       <SortableHeader columnKey="upcomingCampaignEndDate" sortConfig={sortConfig} setSortConfig={setSortConfig}>Upcoming End</SortableHeader>
                     </tr>
@@ -194,13 +257,11 @@ export default function BookingsDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{item.clientName || 'N/A'}</td>
-                          {/* ADDED CELLS */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.clientContactNumber || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.clientType || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-normal text-sm text-gray-500 max-w-xs truncate" title={item.associatedCampaigns}>{item.associatedCampaigns}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.isFOCBooking ? 'FOC' : formatCurrency(item.totalPrice)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(item.createdAt)}</td>
-                          {/* ADDED CELLS */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.upcomingCampaignStartDate ? formatDate(item.upcomingCampaignStartDate) : 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.upcomingCampaignEndDate ? formatDate(item.upcomingCampaignEndDate) : 'N/A'}</td>
                         </tr>

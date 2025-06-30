@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -92,7 +90,7 @@ export default function Gallery() {
   }, [paginatedData]);
 
   return (
-    <div className="min-h-screen bg-[#fafafb] h-screen w-screen bg-white text-black flex flex-col lg:flex-row overflow-hidden">
+    <div className="min-h-screen bg-gray-100 h-screen w-screen text-black flex flex-col lg:flex-row overflow-hidden">
       <Navbar />
       <main className="flex-1 h-full overflow-y-auto px-4 md:px-6 py-6 ml-0 lg:ml-64">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -166,44 +164,44 @@ export default function Gallery() {
                 {/* Download Artwork Images */}
                 <div className="flex justify-end">
                <button
-  onClick={async () => {
-    for (const campaign of item.campaigns || []) {
-      const pipelines = Array.isArray(campaign.pipeline)
-        ? campaign.pipeline
-        : [campaign.pipeline];
+                  onClick={async () => {
+                    for (const campaign of item.campaigns || []) {
+                      const pipelines = Array.isArray(campaign.pipeline)
+                        ? campaign.pipeline
+                        : [campaign.pipeline];
 
-      for (const pipe of pipelines) {
-        const artworkUrl = pipe?.artwork?.documentUrl;
-        if (artworkUrl) {
-          try {
-            const response = await fetch(artworkUrl, {
-              mode: 'cors', // Ensure CORS is respected
-            });
+                      for (const pipe of pipelines) {
+                        const artworkUrl = pipe?.artwork?.documentUrl;
+                        if (artworkUrl) {
+                          try {
+                            const response = await fetch(artworkUrl, {
+                              mode: 'cors', // Ensure CORS is respected
+                            });
 
-            if (!response.ok) {
-              throw new Error(`Failed to fetch: ${artworkUrl}`);
-            }
+                            if (!response.ok) {
+                              throw new Error(`Failed to fetch: ${artworkUrl}`);
+                            }
 
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = artworkUrl.split('/').pop() || 'artwork.jpg';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-          } catch (err) {
-            console.error('Download failed:', err.message);
-          }
-        }
-      }
-    }
-  }}
-  className="text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition"
->
-  Download Images
-</button>
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = artworkUrl.split('/').pop() || 'artwork.jpg';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                          } catch (err) {
+                            console.error('Download failed:', err.message);
+                          }
+                        }
+                      }
+                    }
+                  }}
+                  className="text-xs px-3 py-1 rounded bg-blue-500 text-white hover:bg-blue-600 transition"
+                >
+                  Download Images
+                </button>
 
                 </div>
               </CardContent>

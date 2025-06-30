@@ -10,7 +10,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Login from './components/Login';
 import Register from './components/Register';
-import ForgotPassword from './components/ForgotPassword'; // New import
+import ForgotPassword from './components/ForgotPassword';
 import HomePage from './components/HomePage';
 import InventoryDashboard from './components/Inventory';
 import AddSpaceForm from './components/AddSpaceForm';
@@ -35,6 +35,12 @@ import Report from './components/Report.jsx';
 import PipelineBoard from './components/PipelineBoard';
 import CampaignPipeline from './components/CampaignPipeline';
 import CampaignDetails from './components/CampaignDetails';
+
+// ===== NEW: IMPORT POLICY COMPONENTS =====
+import PrivacyPolicy from './components/PrivacyPolicy';
+import CookiePolicy from './components/CookiePolicy';
+import DisclaimerPolicy from './components/DisclaimerPolicy';
+
 
 export default function App() {
   return (
@@ -62,6 +68,11 @@ export default function App() {
           <Route path='/gallery' element={<ProtectedRoute><Gallery /></ProtectedRoute>} />
           <Route path='/reports' element={<ProtectedRoute><Report /></ProtectedRoute>} />
           
+          {/* ===== NEW: ADDED ROUTES FOR POLICY PAGES ===== */}
+          <Route path='/privacy-policy' element={<ProtectedRoute><PrivacyPolicy /></ProtectedRoute>} />
+          <Route path='/cookie-policy' element={<ProtectedRoute><CookiePolicy /></ProtectedRoute>} />
+          <Route path='/disclaimer-policy' element={<ProtectedRoute><DisclaimerPolicy /></ProtectedRoute>} />
+
           {/* Space Management */}
           <Route path='/add-space' element={
             <ProtectedRoute>
@@ -81,11 +92,6 @@ export default function App() {
           <Route path='/space/:id/edit' element={<ProtectedRoute><EditSpace /></ProtectedRoute>} />
 
           {/* Booking & Campaign Management */}
-          {/* =====================================================================
-              FIX: Added a new route for '/bookings' to match the links from
-              the homepage dashboard. It renders the same component as
-              '/booking-dashboard'.
-            ===================================================================== */}
           <Route path='/bookings' element={<ProtectedRoute><BookingsDashboard1 /></ProtectedRoute>} />
           
           <Route path='/booking-dashboard' element={<ProtectedRoute><BookingsDashboard1 /></ProtectedRoute>} />

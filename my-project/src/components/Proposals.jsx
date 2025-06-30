@@ -42,7 +42,8 @@ export default function ProposalsDashboard() {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
-const [isAnimated, setIsAnimated] = useState(false);
+  const [isAnimated, setIsAnimated] = useState(false);
+
   useEffect(() => {
     const fetchProposals = async () => {
       try {
@@ -66,16 +67,21 @@ const [isAnimated, setIsAnimated] = useState(false);
   );
 
   const paginatedData = filteredData.slice((currentPage - 1) * perPage, currentPage * perPage);
+
    useEffect(() => {
+      // Reset animation state on page change
+      setIsAnimated(false); 
       const timeout = setTimeout(() => {
         setIsAnimated(true);
       }, 50); // Small delay ensures animation is triggered
       return () => clearTimeout(timeout);
-    }, [paginatedData]);
+    }, [currentPage]); // Depend on currentPage to re-trigger animation
+
   const totalPages = Math.ceil(filteredData.length / perPage);
 
   return (
-    <div className="min-h-screen bg-[#fafafb] h-screen w-screen bg-white text-black flex flex-col lg:flex-row overflow-hidden">
+    // MODIFICATION: Changed background color class here
+    <div className="min-h-screen bg-gray-100 h-screen w-screen text-black flex flex-col lg:flex-row overflow-hidden">
       {/* Sidebar */}
       <Navbar />
 
@@ -83,7 +89,6 @@ const [isAnimated, setIsAnimated] = useState(false);
       <main className="flex-1 h-full overflow-y-auto px-4 md:px-6 py-6 ml-0 lg:ml-64">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
             <h2 className="text-2xl md:text-3xl font-sans font-normal">Proposals</h2>
-          
         </div>
 
         <div className="mt-6 text-sm flex flex-col md:flex-row justify-between gap-4 items-stretch md:items-center">
@@ -96,8 +101,8 @@ const [isAnimated, setIsAnimated] = useState(false);
         </div>
 
         <div className={`mt-6 grid grid-cols-1 gap-4 w-full transform transition-all duration-700 ease-out ${
-  isAnimated ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-}`}>
+          isAnimated ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
+        }`}>
           {paginatedData.map((item) => (
             <Card key={item._id} className="transition hover:shadow-md cursor-pointer" onClick={() => navigate(`/proposal/${item._id}`)}>
               <CardContent className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

@@ -30,7 +30,8 @@ const baseNodeStyle = {
   fontWeight: 600,
 };
 
-function CampaignPipelineInternal({ campaignId }) {
+// --- MODIFICATION: Accept onRefresh prop ---
+function CampaignPipelineInternal({ campaignId, onRefresh }) {
   const { id } = useParams();
   const CampaignId = campaignId || id;
 
@@ -43,7 +44,14 @@ function CampaignPipelineInternal({ campaignId }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { fitView } = useReactFlow();
-  const triggerRefresh = () => setRefreshKey(prev => prev + 1);
+
+  // --- MODIFICATION: Call the onRefresh function passed from the parent ---
+  const triggerRefresh = () => {
+    setRefreshKey(prev => prev + 1); // Refreshes this component's data
+    if (onRefresh) {
+      onRefresh(); // Refreshes the parent's data
+    }
+  };
 
   const onConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), []);
   const onNodeClick = (_, node) => {

@@ -122,7 +122,8 @@ export default function BookingDetails() {
   };
 
   if (!booking) return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-[#fafafb]">
+    // FIX 1: Corrected the loading state's layout to be consistent
+    <div className="flex flex-col lg:flex-row min-h-screen bg-[#fafafb] w-screen">
       <Navbar />
       <main className="flex-1 flex justify-center items-center ml-0 lg:ml-64 p-6">
         <div className="text-xl text-gray-700">Loading booking details...</div>
@@ -147,7 +148,8 @@ export default function BookingDetails() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#fafafb] w-full text-base-content flex flex-col lg:flex-row overflow-x-hidden">
+    // FIX 2: Replaced `w-full` and `overflow-x-hidden` with `w-screen` for correct full-width layout
+    <div className="min-h-screen bg-[#fafafb] w-screen text-base-content flex flex-col lg:flex-row">
       <Navbar />
       <main className="flex-1 h-full overflow-y-auto px-4 sm:px-6 py-6 ml-0 lg:ml-64">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
@@ -187,7 +189,6 @@ export default function BookingDetails() {
           <div>
             <h2 className="text-xl font-semibold text-gray-700 mb-4 mt-8 border-b pb-3">Campaigns ({booking.campaigns.length})</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* ====== CAMPAIGN TILE MODIFICATION ====== */}
               {booking.campaigns.map((campaign, idx) => (
                 <div key={campaign._id || idx} className="card bg-white shadow-lg rounded-lg overflow-hidden hover:shadow-xl transition-shadow duration-200 cursor-pointer flex flex-col" onClick={() => navigate(`/campaign-details/${campaign._id}`)}>
                   {campaign.pipeline?.artwork?.image && (

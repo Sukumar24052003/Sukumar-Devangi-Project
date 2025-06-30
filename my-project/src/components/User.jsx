@@ -1,11 +1,8 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import { toast } from 'sonner';
 import { Dialog } from '@headlessui/react';
-import { Navigate } from 'react-router-dom';
 
 const Button = ({ children, className = '', ...props }) => (
   <button className={`px-4 py-2 rounded bg-black text-white hover: transition ${className}`} {...props}>
@@ -43,7 +40,7 @@ const PaginationLink = ({ children, isActive = false, onClick }) => (
 
 export default function User() {
   const [users, setUsers] = useState([]);
-   const navigate = useNavigate();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isAnimated, setIsAnimated] = useState(false);
@@ -66,19 +63,20 @@ export default function User() {
   }, []);
 
   const handleDelete = async () => {
+    if (!userToDelete) return;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/users/${userToDelete}`, {
         method: 'DELETE',
       });
       const result = await res.json();
       if (res.ok) {
-        toast.success(result.message);
-        fetchUsers();
+        toast.success(result.message || 'User deleted successfully.');
+        fetchUsers(); // Refresh the list after deletion
       } else {
-        toast.error(result.message);
+        toast.error(result.message || 'Failed to delete user.');
       }
     } catch (err) {
-      toast.error('Error deleting user');
+      toast.error('An error occurred while deleting the user.');
     } finally {
       setShowModal(false);
       setUserToDelete(null);
@@ -95,14 +93,16 @@ export default function User() {
   const totalPages = Math.ceil(filteredData.length / perPage);
 
   useEffect(() => {
+    setIsAnimated(false);
     const timeout = setTimeout(() => {
       setIsAnimated(true);
     }, 50);
     return () => clearTimeout(timeout);
-  }, [paginatedData]);
+  }, [currentPage]);
 
   return (
-    <div className="min-h-screen bg-[#fafafb] h-screen w-screen bg-white text-black flex flex-col lg:flex-row overflow-hidden">
+    // MODIFICATION: Changed background color class here
+    <div className="min-h-screen bg-gray-100 h-screen w-screen text-black flex flex-col lg:flex-row overflow-hidden">
       <Navbar />
 
       <main className="flex-1 h-full overflow-y-auto px-4 md:px-6 py-6 ml-0 lg:ml-64">
@@ -112,17 +112,15 @@ export default function User() {
 
         <div className="mt-6 text-sm flex flex-col md:flex-row justify-between gap-4 items-stretch md:items-center">
           <Input
-            className="md:w-[25%] h-[2rem]"
-            placeholder="Search Users"
+            className="md:w-[25%] h-[2.5rem]"
+            placeholder="Search Users by name, email, or phone"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1); // Reset to first page on search
+            }}
           />
-           <div className="flex justify-between mt-[2%] items-center mb-4">
-        <div className='text-xs'>
-    
-        </div>
-        <button onClick={()=>navigate('/create-user')} className="bg-black text-xs text-white px-3 py-2 rounded transition delay-150 duration-300 ease-in-out hover:-translate-y-1 hover:scale-110">+ Create User</button>
-      </div>
+          <button onClick={()=>navigate('/create-user')} className="bg-black text-sm text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-transform duration-200 hover:scale-105">+ Create User</button>
         </div>
 
         <div className={`mt-6 grid grid-cols-1 gap-4 w-full transform transition-all duration-700 ease-out ${
@@ -137,46 +135,31 @@ export default function User() {
                   <div className="text-xs text-gray-600">Phone: {user.phone || 'Not Provided'}</div>
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
-                  {/* <span className="text-xs px-2 py-1 rounded bg-blue-200">
-                    ID: {user._id.slice(-6)}
+                  <span className="text-xs px-2 py-1 rounded-md bg-yellow-100 text-yellow-800 font-medium">
+                    {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'Member'}
                   </span>
-                  <span className="text-xs px-2 py-1 rounded bg-yellow-100">
+                  <span className="text-xs px-2 py-1 rounded-md bg-green-100 text-green-800">
                     Joined: {new Date(user.createdAt).toLocaleDateString()}
                   </span>
-                  <button
-                    className="text-xs px-2 py-1 rounded bg-red-200 hover:bg-red-300 text-red-800"
-                    onClick={() => {
-                      setUserToDelete(user._id);
-                      setShowModal(true);
-                    }}
-                  >
-                    Delete
-                  </button> */}
-                  <span className="text-xs px-2 py-1 rounded bg-yellow-100">
-   {user.role || 'member'}
-</span>
-<span className="text-xs px-2 py-1 rounded bg-green-100">
-  Joined: {new Date(user.createdAt).toLocaleDateString()}
-</span>
-{user.role !== 'admin' && (
-  <button
-    className="text-xs px-2 py-1 rounded bg-red-200 hover:bg-red-300 text-red-800"
-    onClick={() => {
-      setUserToDelete(user._id);
-      setShowModal(true);
-    }}
-  >
-    Delete
-  </button>
-)}
-
+                  {user.role !== 'admin' && (
+                    <button
+                      className="text-xs px-2 py-1 rounded bg-red-200 hover:bg-red-300 text-red-800 transition"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card click
+                        setUserToDelete(user._id);
+                        setShowModal(true);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        <div className="mt-6">
+        {totalPages > 0 && <div className="mt-6">
           <Pagination>
             <PaginationContent className="gap-2">
               {Array.from({ length: totalPages }).map((_, i) => (
@@ -191,27 +174,27 @@ export default function User() {
               ))}
             </PaginationContent>
           </Pagination>
-        </div>
+        </div>}
       </main>
 
-      {/* 🧠 Confirmation Modal */}
+      {/* Confirmation Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-xl w-80">
-            <h2 className="text-md font-semibold mb-4">Confirm Deletion</h2>
-            <p className="text-sm mb-6">Are you sure you want to delete this user?</p>
-            <div className="flex justify-end gap-2">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h2 className="text-lg font-semibold mb-4">Confirm Deletion</h2>
+            <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete this user? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
               <button
-                className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm font-medium"
                 onClick={() => setShowModal(false)}
               >
                 Cancel
               </button>
               <button
-                className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm font-medium"
                 onClick={handleDelete}
               >
-                Delete
+                Delete User
               </button>
             </div>
           </div>
@@ -220,4 +203,3 @@ export default function User() {
     </div>
   );
 }
-

@@ -199,7 +199,8 @@ const HomePage = () => {
     const [allBookings, setAllBookings] = useState([]);
     const [allSpaces, setAllSpaces] = useState([]);
     const [proposals, setProposals] = useState([]);
-    const [revenueView, setRevenueView] = useState('yearly');
+    // UPDATED: Default view is now 'daily'
+    const [revenueView, setRevenueView] = useState('daily');
     const [range, setRange] = useState('month');
     
     const [campaignStatusRange, setCampaignStatusRange] = useState('30d');
@@ -412,9 +413,8 @@ const HomePage = () => {
 
       setInventoryDistributionStats(ownershipCounts);
 
-      const isYearly = revenueView === 'yearly';
-
-      if (isYearly) {
+      // UPDATED: Logic now correctly handles 'monthly' vs 'daily' views.
+      if (revenueView === 'monthly') {
         let startOfFY;
         const currentMonth = now.month();
         if (currentMonth >= 3) {
@@ -444,7 +444,7 @@ const HomePage = () => {
         });
         
         setRevenueChartData({ xLabels: Array.from(revMap.keys()), yData: Array.from(revMap.values()) });
-      } else {
+      } else { // Daily view logic
         const timeUnits = 30;
         const timePeriod = 'day';
         const timeFormat = 'D MMM';
@@ -779,8 +779,12 @@ const HomePage = () => {
             <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
                 <h2 className="text-lg font-semibold">Revenue Graph</h2>
                 {!loading && (
-                    <button onClick={() => setRevenueView(prev => prev === 'yearly' ? 'monthly' : 'yearly')} className="bg-gray-200 text-black text-xs px-3 py-1.5 rounded-md mt-2 sm:mt-0">
-                        View By: {revenueView === 'yearly' ? 'Yearly' : 'Monthly'}
+                    // UPDATED: Button logic and text updated. Style also updated to match image.
+                    <button 
+                      onClick={() => setRevenueView(prev => prev === 'daily' ? 'monthly' : 'daily')} 
+                      className="bg-white border border-gray-300 text-black text-xs px-3 py-1.5 rounded-md mt-2 sm:mt-0 shadow-sm hover:bg-gray-50"
+                    >
+                        View By: {revenueView === 'daily' ? 'Monthly' : 'Daily'}
                     </button>
                 )}
             </div>
@@ -794,7 +798,8 @@ const HomePage = () => {
                 return (
                   <div className="bg-white border shadow-sm rounded-xl w-full">
                     <LineChart
-                        xAxis={[{ data: revenueChartData.xLabels, scaleType: 'point', label: revenueView === 'yearly' ? 'Months' : '' }]}
+                        // UPDATED: xAxis label logic now reflects daily/monthly view
+                        xAxis={[{ data: revenueChartData.xLabels, scaleType: 'point', label: revenueView === 'monthly' ? 'Months' : '' }]}
                         yAxis={[{ 
                             label: 'Amount in Lakhs (₹)',
                             min: 0,
@@ -804,7 +809,7 @@ const HomePage = () => {
                         series={[{ 
                           data: revenueChartData.yData, 
                           label: 'Revenue', 
-                          color: '#8b5cf6', 
+                          color: '#a855f7', // Adjusted color to better match image
                           area: true, 
                           curve: "monotoneX", 
                           showMark: true,

@@ -1,6 +1,6 @@
 // src/pages/CampaignDetails.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Import useCallback
 import { useParams } from 'react-router-dom';
 import Navbar from './Navbar';
 import CampaignPipeline from './CampaignPipeline';
@@ -30,52 +30,53 @@ export default function CampaignDetails() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const fetchAllData = async () => {
-            setLoading(true);
-            setError(null);
-            
-            try {
-                const [campaignRes, pipelineRes] = await Promise.all([
-                    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/campaign/${id}`),
-                    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pipeline/campaign/${id}`)
-                ]);
+    // --- MODIFICATION 1: Wrap fetchAllData in useCallback ---
+    const fetchAllData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const [campaignRes, pipelineRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/campaign/${id}`),
+                fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pipeline/campaign/${id}`)
+            ]);
 
-                if (!campaignRes.ok) {
-                    throw new Error(`Failed to fetch campaign details (Status: ${campaignRes.status})`);
-                }
-                
-                const campaign = await campaignRes.json();
-                const pipeline = pipelineRes.ok ? await pipelineRes.json() : null;
-
-                const fetchedSpaces = await Promise.all(
-                    (campaign.spaces || []).map(async (space) => {
-                        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/spaces/${space.id}`);
-                        if (!res.ok) {
-                           console.error(`Failed to fetch details for space ID: ${space.id}`);
-                           return null;
-                        }
-                        const details = await res.json();
-                        return { ...details, selectedUnits: space.selectedUnits };
-                    })
-                );
-
-                setCampaignData(campaign);
-                setPipelineData(pipeline);
-                setInventoryCosts(campaign.inventoryCosts || []);
-                setSpaceDetails(fetchedSpaces.filter(s => s !== null));
-
-            } catch (err) {
-                console.error('Failed to load campaign data:', err);
-                setError(err.message);
-                toast.error(err.message);
-            } finally {
-                setLoading(false);
+            if (!campaignRes.ok) {
+                throw new Error(`Failed to fetch campaign details (Status: ${campaignRes.status})`);
             }
-        };
+            
+            const campaign = await campaignRes.json();
+            const pipeline = pipelineRes.ok ? await pipelineRes.json() : null;
 
+            const fetchedSpaces = await Promise.all(
+                (campaign.spaces || []).map(async (space) => {
+                    const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/spaces/${space.id}`);
+                    if (!res.ok) {
+                       console.error(`Failed to fetch details for space ID: ${space.id}`);
+                       return null;
+                    }
+                    const details = await res.json();
+                    return { ...details, selectedUnits: space.selectedUnits };
+                })
+            );
+
+            setCampaignData(campaign);
+            setPipelineData(pipeline);
+            setInventoryCosts(campaign.inventoryCosts || []);
+            setSpaceDetails(fetchedSpaces.filter(s => s !== null));
+
+        } catch (err) {
+            console.error('Failed to load campaign data:', err);
+            setError(err.message);
+            toast.error(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [id]); // Dependency for useCallback
+
+    useEffect(() => {
         fetchAllData();
-    }, [id]);
+    }, [id, fetchAllData]);
     
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-IN');
 
@@ -161,8 +162,9 @@ export default function CampaignDetails() {
                         </button>
                     ))}
                 </div>
-
-                {activeTab === 'Pipeline' && <CampaignPipeline campaignId={campaignData._id} />}
+                
+                {/* --- MODIFICATION 2: Pass the refresh function to the child component --- */}
+                {activeTab === 'Pipeline' && <CampaignPipeline campaignId={campaignData._id} onRefresh={fetchAllData} />}
 
                 {activeTab === 'Details' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
@@ -176,7 +178,7 @@ export default function CampaignDetails() {
                                     <KeyValueItem label="End Date" value={formatDate(endDate)} />
                                 </div>
                                 
-                                {/* ====== ARTWORK IMAGE DISPLAY ====== */}
+                                {/* This artwork display code is correct and will now work because data is refreshed */}
                                 {pipelineData?.artwork?.image && (
                                     <div className="mt-4 pt-4 border-t">
                                         <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Artwork</h3>
