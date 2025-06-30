@@ -81,6 +81,13 @@ export default function App() {
           <Route path='/space/:id/edit' element={<ProtectedRoute><EditSpace /></ProtectedRoute>} />
 
           {/* Booking & Campaign Management */}
+          {/* =====================================================================
+              FIX: Added a new route for '/bookings' to match the links from
+              the homepage dashboard. It renders the same component as
+              '/booking-dashboard'.
+            ===================================================================== */}
+          <Route path='/bookings' element={<ProtectedRoute><BookingsDashboard1 /></ProtectedRoute>} />
+          
           <Route path='/booking-dashboard' element={<ProtectedRoute><BookingsDashboard1 /></ProtectedRoute>} />
           <Route path='/booking/:id' element={<ProtectedRoute><BookingDetails /></ProtectedRoute>} />
           <Route path='/campaign-details/:id' element={

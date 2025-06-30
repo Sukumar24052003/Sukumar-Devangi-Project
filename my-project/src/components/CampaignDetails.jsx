@@ -27,19 +27,15 @@ export default function CampaignDetails() {
     const [inventoryCosts, setInventoryCosts] = useState([]);
     const [activeTab, setActiveTab] = useState('Details');
     const [editableSpaces, setEditableSpaces] = useState(new Set());
-
-    // --- FIX 1: Add explicit loading and error states ---
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchAllData = async () => {
-            // Start in a clean state
             setLoading(true);
             setError(null);
             
             try {
-                // Fetch all data concurrently for better performance
                 const [campaignRes, pipelineRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_BASE_URL}/api/bookings/campaign/${id}`),
                     fetch(`${import.meta.env.VITE_API_BASE_URL}/api/pipeline/campaign/${id}`)
@@ -52,31 +48,28 @@ export default function CampaignDetails() {
                 const campaign = await campaignRes.json();
                 const pipeline = pipelineRes.ok ? await pipelineRes.json() : null;
 
-                // Now fetch the details for the spaces within the campaign
                 const fetchedSpaces = await Promise.all(
                     (campaign.spaces || []).map(async (space) => {
                         const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/spaces/${space.id}`);
                         if (!res.ok) {
                            console.error(`Failed to fetch details for space ID: ${space.id}`);
-                           return null; // Return null for failed fetches
+                           return null;
                         }
                         const details = await res.json();
                         return { ...details, selectedUnits: space.selectedUnits };
                     })
                 );
 
-                // Set all states at once after all data is fetched
                 setCampaignData(campaign);
                 setPipelineData(pipeline);
                 setInventoryCosts(campaign.inventoryCosts || []);
-                setSpaceDetails(fetchedSpaces.filter(s => s !== null)); // Filter out any failed fetches
+                setSpaceDetails(fetchedSpaces.filter(s => s !== null));
 
             } catch (err) {
                 console.error('Failed to load campaign data:', err);
                 setError(err.message);
                 toast.error(err.message);
             } finally {
-                // --- FIX 2: Set loading to false only after ALL async operations are complete ---
                 setLoading(false);
             }
         };
@@ -84,7 +77,6 @@ export default function CampaignDetails() {
         fetchAllData();
     }, [id]);
     
-    // ... other helper functions (formatDate, getCostItem, etc.) remain the same
     const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-IN');
 
     const getCostItem = (spaceId) => inventoryCosts.find(cost => cost.id === spaceId || cost.id?._id === spaceId);
@@ -140,32 +132,18 @@ export default function CampaignDetails() {
         }
     };
     
-    // --- FIX 3: Render logic based on the new loading/error states ---
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-screen w-full">
-                <p className="text-lg">Loading Campaign Details...</p>
-            </div>
-        );
+        return <div className="flex items-center justify-center h-screen w-full"><p className="text-lg">Loading Campaign Details...</p></div>;
     }
 
     if (error) {
-        return (
-            <div className="flex items-center justify-center h-screen w-full">
-                <p className="text-lg text-red-500">Error: {error}</p>
-            </div>
-        );
+        return <div className="flex items-center justify-center h-screen w-full"><p className="text-lg text-red-500">Error: {error}</p></div>;
     }
 
     if (!campaignData) {
-        return (
-            <div className="flex items-center justify-center h-screen w-full">
-                <p className="text-lg text-gray-500">Campaign not found.</p>
-            </div>
-        );
+        return <div className="flex items-center justify-center h-screen w-full"><p className="text-lg text-gray-500">Campaign not found.</p></div>;
     }
     
-    // Now we can safely destructure
     const { campaignName, description, startDate, endDate } = campaignData;
     
     return (
@@ -178,13 +156,7 @@ export default function CampaignDetails() {
 
                 <div className="flex space-x-4 mb-4 border-b">
                     {['Details', 'Pipeline'].map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${
-                                activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'
-                            }`}
-                        >
+                        <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ${ activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800' }`} >
                             {tab}
                         </button>
                     ))}
@@ -193,9 +165,9 @@ export default function CampaignDetails() {
                 {activeTab === 'Pipeline' && <CampaignPipeline campaignId={campaignData._id} />}
 
                 {activeTab === 'Details' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                         {/* Campaign Info & Payment Card */}
-                        <div className="bg-white shadow-md border rounded-xl p-6 lg:col-span-1">
+                        <div className="bg-white shadow-md border rounded-xl p-6 lg:col-span-1 flex flex-col">
                             <div className="mb-6">
                                 <h2 className="text-lg font-semibold text-gray-800 mb-4">Campaign Info</h2>
                                 <div className="space-y-3">
@@ -203,9 +175,18 @@ export default function CampaignDetails() {
                                     <KeyValueItem label="Start Date" value={formatDate(startDate)} />
                                     <KeyValueItem label="End Date" value={formatDate(endDate)} />
                                 </div>
+                                
+                                {/* ====== ARTWORK IMAGE DISPLAY ====== */}
+                                {pipelineData?.artwork?.image && (
+                                    <div className="mt-4 pt-4 border-t">
+                                        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Artwork</h3>
+                                        <img src={pipelineData.artwork.image} alt="Campaign Artwork" className="w-full h-40 object-cover rounded-md border" />
+                                    </div>
+                                )}
                             </div>
+                            
                             {pipelineData?.payment && (
-                                <div className="mt-6 pt-6 border-t">
+                                <div className="mt-auto pt-6 border-t">
                                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Overview</h3>
                                     <div className="flex items-center gap-4">
                                       <div className="w-1/2">
@@ -245,7 +226,7 @@ export default function CampaignDetails() {
                                             {['displayCost', 'printingcostpersquareFeet', 'mountingcostpersquareFeet', 'area'].map(field => (
                                                 <label key={field} className="flex items-center justify-between text-xs">
                                                     <span>{field.replace(/([A-Z])/g, ' $1').replace('persquare Feet','/sq.ft.').replace(/^./, str => str.toUpperCase())}:</span>
-                                                    <input type="number" className="border rounded px-2 py-1 w-24" value={cost?.[field] ?? (field === 'area' ? computedArea : 0)} onChange={(e) => updateCostField(space._id, Number(e.target.value))} readOnly={!isEditable}/>
+                                                    <input type="number" className="border rounded px-2 py-1 w-24" value={cost?.[field] ?? (field === 'area' ? computedArea : 0)} onChange={(e) => updateCostField(space._id, field, Number(e.target.value))} readOnly={!isEditable}/>
                                                 </label>
                                             ))}
                                             <p className="font-bold text-sm pt-2 text-right">Total: ₹{totalCost.toFixed(2)}</p>

@@ -1,3 +1,5 @@
+// src/pages/Inventory.jsx
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -80,7 +82,7 @@ const AvailabilityBadge = ({ availabilityStatus }) => {
 };
 
 
-// --- VIEW COMPONENTS (No changes) ---
+// --- VIEW COMPONENTS ---
 
 const InventoryGridView = ({ data, onTagUpdate, navigate }) => {
     if (!data || data.length === 0) {
@@ -164,7 +166,7 @@ const InventoryTableView = ({ data, currentPage, limit, navigate }) => {
                         <th scope="col" className="px-6 py-3">#</th>
                         <th scope="col" className="px-6 py-3">Space Name</th>
                         <th scope="col" className="px-6 py-3">City</th>
-                        <th scope="col" className="px-6 py-3">Category</th>
+                        <th scope="col" className="px-6 py-3">Space Type</th>
                         <th scope="col" className="px-6 py-3">Availability</th>
                         <th scope="col" className="px-6 py-3">Price</th>
                         <th scope="col" className="px-6 py-3">Inventory ID</th>
@@ -190,8 +192,9 @@ const InventoryTableView = ({ data, currentPage, limit, navigate }) => {
                             <td className="px-6 py-4">
                                 <AvailabilityBadge availabilityStatus={item.availability} />
                             </td>
+                            {/* This is the key part. This code is correct. It will display the price once the API provides it. */}
                             <td className="px-6 py-4">
-                                {item.price && !isNaN(item.price) ? `₹${Number(item.price).toLocaleString('en-IN')}` : 'N/A'}
+                                {item.price != null && !isNaN(item.price) ? `₹${Number(item.price).toLocaleString('en-IN')}` : 'N/A'}
                             </td>
                             <td className="px-6 py-4 font-mono text-xs text-gray-500">{item.inventoryId || item._id.slice(-8).toUpperCase()}</td>
                             <td className="px-6 py-4 text-center">
@@ -465,11 +468,6 @@ export default function InventoryDashboard() {
                                         editableDateInputs={true}
                                         onChange={item => setTempDateRange([item.selection])}
                                         moveRangeOnFirstSelection={false}
-                                        // --- THE FIX ---
-                                        // Always pass the tempDateRange state directly.
-                                        // The component is designed to handle a range object with null dates.
-                                        // The previous conditional logic was preventing the component
-                                        // from tracking the selection correctly.
                                         ranges={tempDateRange}
                                         rangeColors={['#000000']}
                                         months={1}

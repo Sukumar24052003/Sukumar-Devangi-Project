@@ -39,7 +39,7 @@ const ShimmerCard = ({ height = 'h-[250px]' }) => (
 );
 
 
-// --- CALENDAR COMPONENT (No changes) ---
+// --- CALENDAR COMPONENT ---
 const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
   const [days, setDays] = useState([]);
   const [events, setEvents] = useState(new Map());
@@ -47,7 +47,7 @@ const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
   
   const [tooltip, setTooltip] = useState({
     visible: false,
-    content: '',
+    content: null,
     x: 0,
     y: 0,
   });
@@ -58,10 +58,13 @@ const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
     bookings.forEach(booking => {
         (booking.campaigns || []).forEach(campaign => {
             const campaignInfo = {
-                id: `${booking._id}-${campaign.name || 'unnamed'}`,
+                id: `${booking._id}-${campaign._id}`,
                 bookingId: booking._id,
-                brandName: booking.brandName || 'Unknown Brand',
+                campaignId: campaign._id,
+                // This line correctly provides a default value if the name is missing from the database
                 campaignName: campaign.name || 'Unnamed Campaign',
+                startDate: campaign.startDate,
+                endDate: campaign.endDate,
             };
 
             if (campaign.startDate) {
@@ -89,18 +92,36 @@ const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
 
   const p=()=>setCurrentDate(currentDate.subtract(1,'month')),n=()=>setCurrentDate(currentDate.add(1,'month'));
   
-  const handleNavigate = (bookingId) => {
-    if (bookingId) {
-      navigate(`/campaign/${bookingId}`);
+  const handleNavigate = (campaignId) => {
+    if (campaignId) {
+      navigate(`/campaign-details/${campaignId}`);
     }
   };
   
   const handleMouseOver = (e, campaigns) => {
     if (!campaigns || campaigns.length === 0) return;
-    const campaignNames = campaigns.map(c => c.campaignName).join(', ');
+
+    const tooltipContent = (
+      <div className="text-xs">
+        <ul className="space-y-2">
+          {campaigns.map((c, index) => (
+            <li key={c.id} className={campaigns.length > 1 && index < campaigns.length - 1 ? "border-b border-gray-600 pb-2" : ""}>
+              <div className="font-semibold text-white">{c.campaignName}</div>
+              <div className="text-gray-300 mt-0.5">
+                Starts: {dayjs(c.startDate).format('DD MMM, YYYY')}
+              </div>
+              <div className="text-gray-300">
+                Ends: {dayjs(c.endDate).format('DD MMM, YYYY')}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+
     setTooltip({
       visible: true,
-      content: campaignNames,
+      content: tooltipContent,
       x: e.clientX,
       y: e.clientY,
     });
@@ -134,7 +155,7 @@ const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
                     className="w-2 h-2 rounded-full bg-green-500 cursor-pointer"
                     onMouseEnter={(event) => handleMouseOver(event, e.startingCampaigns)}
                     onMouseLeave={handleMouseOut}
-                    onClick={() => handleNavigate(e.startingCampaigns[0].bookingId)}>
+                    onClick={() => handleNavigate(e.startingCampaigns[0].campaignId)}>
                   </div>
                 }
                 {e?.endingCampaigns?.length > 0 && 
@@ -142,7 +163,7 @@ const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
                     className="w-2 h-2 rounded-full bg-red-500 cursor-pointer"
                     onMouseEnter={(event) => handleMouseOver(event, e.endingCampaigns)}
                     onMouseLeave={handleMouseOut}
-                    onClick={() => handleNavigate(e.endingCampaigns[0].bookingId)}>
+                    onClick={() => handleNavigate(e.endingCampaigns[0].campaignId)}>
                   </div>
                 }
               </div>
@@ -154,7 +175,7 @@ const DashboardCalendar = ({ bookings, currentDate, setCurrentDate }) => {
     
     {tooltip.visible && (
       <div
-        className="fixed z-50 bg-gray-800 text-white text-xs rounded-md px-2 py-1 shadow-lg pointer-events-none"
+        className="fixed z-50 bg-gray-800 text-white rounded-md px-3 py-2 shadow-lg pointer-events-none"
         style={{
           top: `${tooltip.y + 15}px`,
           left: `${tooltip.x + 15}px`,
@@ -175,7 +196,6 @@ const HomePage = () => {
     const campaignDropdownRef = useRef(null);
     const paymentDropdownRef = useRef(null);
     
-    // Data State
     const [allBookings, setAllBookings] = useState([]);
     const [allSpaces, setAllSpaces] = useState([]);
     const [proposals, setProposals] = useState([]);
@@ -188,7 +208,6 @@ const HomePage = () => {
     const [paymentOverviewRange, setPaymentOverviewRange] = useState('all');
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     
-    // Derived State for UI
     const [bookingStatus, setBookingStatus] = useState({ ongoing: 0, completed: 0, upcoming: 0 });
     const [unitUtilizationStats, setUnitUtilizationStats] = useState({ bookedUnits: 0, freeUnits: 0 });
     const [availabilityStats, setAvailabilityStats] = useState({ available: 0, booked: 0, overlapping: 0 });
@@ -228,7 +247,7 @@ const HomePage = () => {
     
     const getStartDateForRange = (range) => {
         const now = dayjs();
-        if (range === 'all') return null; // No date filter
+        if (range === 'all') return null;
         switch (range) {
           case '3m': return now.subtract(3, 'month');
           case '6m': return now.subtract(6, 'month');
@@ -354,12 +373,9 @@ const HomePage = () => {
 
       const bookedSpaceIds = new Set(activeCampaigns.flatMap(c => c.spaces.map(s => s.spaceId)));
 
-      // --- MODIFIED LOGIC FOR DOOH AVAILABILITY ---
       const invStats = { fullVacant: 0, fullBooked: 0, partialBooked: 0 };
       allSpaces.forEach(space => {
-        // We now check if the space *type* is DOOH first.
         if (space.spaceType === 'DOOH') {
-            // Check if it has units to determine partial/full booking
             if (space.units && space.units.length > 0) {
                 const totalUnits = space.units.length;
                 const bookedUnitsCount = space.units.filter(unit => bookedSpaceIds.has(unit._id)).length;
@@ -372,7 +388,6 @@ const HomePage = () => {
                     invStats.partialBooked++;
                 }
             } else {
-                // If it's a DOOH space with no units, it is by definition Fully Vacant.
                 invStats.fullVacant++;
             }
         }
@@ -384,7 +399,7 @@ const HomePage = () => {
       });
 
       const ownershipCounts = allSpaces.reduce((acc, space) => {
-        const ownership = space.ownership?.toLowerCase() || 'owned'; // Default to owned if undefined
+        const ownership = space.ownership?.toLowerCase() || 'owned';
         if (ownership === 'leased') {
             acc.leased++;
         } else if (ownership === 'traded') {
@@ -522,7 +537,6 @@ const HomePage = () => {
             <Button onClick={logout} className="text-xs mt-2 md:mt-0 hover:scale-105">Log Out</Button>
           </div>
   
-          {/* --- TOP SECTION --- */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             <div className="lg:col-span-1 flex flex-col gap-6">
               {loading ? (
@@ -608,7 +622,6 @@ const HomePage = () => {
             <div className="lg:col-span-3">{loading ? <ShimmerCard height="h-full min-h-[424px]" /> : <DashboardCalendar bookings={allBookings} currentDate={currentDate} setCurrentDate={setCurrentDate} />}</div>
           </div>
   
-          {/* --- PIE CHARTS SECTION --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {loading ? <><ShimmerCard height="h-[200px]" /><ShimmerCard height="h-[200px]" /><ShimmerCard height="h-[200px]" /></> : (<>
               
