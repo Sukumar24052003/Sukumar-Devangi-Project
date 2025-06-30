@@ -1,5 +1,7 @@
+// src/pages/BookingsDashboard.jsx
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
 import Navbar from './Navbar';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 
@@ -66,12 +68,19 @@ const CompanyLogo = ({ logoUrl, companyName }) => {
 
 export default function BookingsDashboard() {
   const navigate = useNavigate();
+  const location = useLocation(); // Get location object from React Router
   const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [totalItems, setTotalItems] = useState(0); 
   const perPage = 10;
+  
+  // Get the status filter from the URL
+  const statusFilter = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('status') || '';
+  }, [location.search]);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -81,10 +90,15 @@ export default function BookingsDashboard() {
           return;
       }
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/bookings/optimized?page=${currentPage}&limit=${perPage}&search=${search}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        // Build API URL with all parameters, including the new status filter
+        let apiUrl = `${import.meta.env.VITE_API_BASE_URL}/api/bookings/optimized?page=${currentPage}&limit=${perPage}&search=${search}`;
+        if (statusFilter) {
+          apiUrl += `&status=${statusFilter}`;
+        }
+        
+        const response = await fetch(apiUrl, { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
 
         if (response.status === 401 || response.status === 403) {
           localStorage.clear();
@@ -101,19 +115,17 @@ export default function BookingsDashboard() {
     };
 
     fetchBookings();
-  }, [search, currentPage, navigate]);
+  }, [search, currentPage, navigate, statusFilter]); // Add statusFilter to dependency array
 
   const sortedData = useMemo(() => {
-    // UPDATED: Process both start and end dates
     let itemsWithUpcomingDates = bookings.map(booking => {
         let upcomingCampaignStartDate = null;
-        let upcomingCampaignEndDate = null; // NEW: Add end date variable
+        let upcomingCampaignEndDate = null;
 
         if (booking.campaigns && booking.campaigns.length > 0) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // Find the soonest upcoming start date
             const futureStartDates = booking.campaigns
                 .map(c => c.startDate ? new Date(c.startDate) : null)
                 .filter(date => date && date >= today)
@@ -123,7 +135,6 @@ export default function BookingsDashboard() {
                 upcomingCampaignStartDate = futureStartDates[0];
             }
 
-            // NEW: Find the soonest upcoming end date
             const futureEndDates = booking.campaigns
                 .map(c => c.endDate ? new Date(c.endDate) : null)
                 .filter(date => date && date >= today)
@@ -138,11 +149,10 @@ export default function BookingsDashboard() {
 
     if (sortConfig.key) {
       itemsWithUpcomingDates.sort((a, b) => {
-        // UPDATED: Handle sorting for both new date columns
         if (sortConfig.key === 'upcomingCampaignStartDate' || sortConfig.key === 'upcomingCampaignEndDate') {
             const dateA = a[sortConfig.key];
             const dateB = b[sortConfig.key];
-            if (dateA === null) return 1; // Put nulls at the end
+            if (dateA === null) return 1;
             if (dateB === null) return -1;
             return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
         }
@@ -207,9 +217,7 @@ export default function BookingsDashboard() {
                       <SortableHeader columnKey="clientContactNumber" sortConfig={sortConfig} setSortConfig={setSortConfig}>Contact Number</SortableHeader>
                       <SortableHeader columnKey="clientType" sortConfig={sortConfig} setSortConfig={setSortConfig}>Client Type</SortableHeader>
                       <SortableHeader columnKey="createdAt" sortConfig={sortConfig} setSortConfig={setSortConfig}>Booking Date</SortableHeader>
-                      {/* UPDATED: Renamed columnKey for clarity */}
                       <SortableHeader columnKey="upcomingCampaignStartDate" sortConfig={sortConfig} setSortConfig={setSortConfig}>Upcoming Campaign Start</SortableHeader>
-                      {/* NEW: Added header for End Date */}
                       <SortableHeader columnKey="upcomingCampaignEndDate" sortConfig={sortConfig} setSortConfig={setSortConfig}>Upcoming Campaign End</SortableHeader>
                     </tr>
                   </thead>
@@ -234,11 +242,9 @@ export default function BookingsDashboard() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.clientContactNumber || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.clientType || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(item.createdAt)}</td>
-                          {/* UPDATED: Using new property name */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.upcomingCampaignStartDate ? formatDate(item.upcomingCampaignStartDate) : 'N/A'}
                           </td>
-                           {/* NEW: Added cell for End Date */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {item.upcomingCampaignEndDate ? formatDate(item.upcomingCampaignEndDate) : 'N/A'}
                           </td>
@@ -246,7 +252,6 @@ export default function BookingsDashboard() {
                       ))
                     ) : (
                       <tr>
-                          {/* UPDATED: colSpan increased from 7 to 8 */}
                           <td colSpan="8" className="text-center py-10 text-gray-500">
                               No bookings found.
                           </td>

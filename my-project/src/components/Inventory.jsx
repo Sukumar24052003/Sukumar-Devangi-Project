@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import * as XLSX from 'xlsx';
@@ -10,6 +10,11 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
+// Import the date range picker and its CSS
+import { DateRange } from 'react-date-range';
+import 'react-date-range/dist/styles.css'; // main style file
+import 'react-date-range/dist/theme/default.css'; // theme css file
+
 // Fix for default Leaflet marker icon issue which can occur with bundlers like Vite/Webpack
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -19,7 +24,7 @@ L.Icon.Default.mergeOptions({
 });
 
 
-// --- UI HELPER COMPONENTS ---
+// --- UI HELPER COMPONENTS (No changes) ---
 
 const Button = ({ children, className = '', ...props }) => (
   <button className={`px-4 py-2 rounded-md bg-black text-white text-sm font-medium hover:bg-gray-800 transition ${className}`} {...props}>
@@ -43,7 +48,6 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => (
     </div>
 );
 
-// --- AVAILABILITY BADGE COMPONENT ---
 const AvailabilityBadge = ({ availabilityStatus }) => {
     let colorClasses, text;
 
@@ -76,7 +80,7 @@ const AvailabilityBadge = ({ availabilityStatus }) => {
 };
 
 
-// --- VIEW COMPONENTS ---
+// --- VIEW COMPONENTS (No changes) ---
 
 const InventoryGridView = ({ data, onTagUpdate, navigate }) => {
     if (!data || data.length === 0) {
@@ -84,14 +88,12 @@ const InventoryGridView = ({ data, onTagUpdate, navigate }) => {
     }
 
     return (
-        // Changed to a responsive grid for a "gridwise structure"
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {data.map((item) => {
                 const tags = Array.isArray(item.tags)
                     ? item.tags
                     : String(item.tags || '').split(',').filter(tag => tag.trim() !== '');
 
-                // The item is redesigned to be a more conventional "card"
                 return (
                     <div
                         key={item._id}
@@ -206,25 +208,34 @@ const InventoryTableView = ({ data, currentPage, limit, navigate }) => {
 };
 
 const InventoryMapView = ({ data }) => {
-    const spacesWithCords = data.map(space => ({
-        ...space,
-        latitude: space.latitude || (19.0760 + (Math.random() - 0.5) * 0.5),
-        longitude: space.longitude || (72.8777 + (Math.random() - 0.5) * 0.5),
-    })).filter(space => space.latitude && space.longitude);
+    const spacesWithCords = data
+        .map(space => {
+            const lat = parseFloat(space.latitude);
+            const lon = parseFloat(space.longitude);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                return { ...space, latitude: lat, longitude: lon };
+            }
+            return null;
+        })
+        .filter(space => space !== null);
 
-    if (spacesWithCords.length === 0) {
-        return <div className="text-center py-10 h-96 flex items-center justify-center bg-white rounded-lg shadow-sm text-gray-500">No inventory with location data.</div>;
-    }
+    const DEFAULT_CENTER = [19.0760, 72.8777]; // Mumbai
 
-    const center = [spacesWithCords[0].latitude, spacesWithCords[0].longitude];
-
+    const mapCenter = spacesWithCords.length > 0
+        ? [spacesWithCords[0].latitude, spacesWithCords[0].longitude]
+        : DEFAULT_CENTER;
+    
     return (
         <div className="h-[60vh] w-full rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-             <MapContainer center={center} zoom={11} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
+             <MapContainer center={mapCenter} zoom={10} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                
                 {spacesWithCords.map(item => (
                     <Marker key={item._id} position={[item.latitude, item.longitude]}>
-                        <Popup><b>{item.spaceName}</b><br/>{item.availability}</Popup>
+                        <Popup><b>{item.spaceName}</b><br/>{item.address || 'No address available'}</Popup>
                     </Marker>
                 ))}
             </MapContainer>
@@ -237,26 +248,48 @@ const InventoryMapView = ({ data }) => {
 
 export default function InventoryDashboard() {
     const navigate = useNavigate();
+    const datePickerRef = useRef(null);
+
+    // State for data and pagination
     const [spaces, setSpaces] = useState([]);
-    const [search, setSearch] = useState('');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [selectedRegion, setSelectedRegion] = useState('');
-    const [availability, setAvailability] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [showDateModal, setShowDateModal] = useState(false);
-    const [tempStartDate, setTempStartDate] = useState('');
-    const [tempEndDate, setTempEndDate] = useState('');
     const [viewMode, setViewMode] = useState('table');
     const limit = 10;
 
+    // State for filters
+    const [search, setSearch] = useState('');
+    const [selectedRegion, setSelectedRegion] = useState('');
+    const [availability, setAvailability] = useState('');
+    const [spaceType, setSpaceType] = useState('');
+    const [ownershipType, setOwnershipType] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    
+    // State for modals and popovers
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [showDateModal, setShowDateModal] = useState(false);
+    
+    // State for the date range picker
+    const [dateRange, setDateRange] = useState([{ startDate: null, endDate: null, key: 'selection' }]);
+    const [tempDateRange, setTempDateRange] = useState(dateRange);
+
+
+    // --- DATA FETCHING ---
     const fetchSpaces = async () => {
         try {
             const token = localStorage.getItem('accessToken');
-            const params = new URLSearchParams({ page: currentPage, limit, search, region: selectedRegion, availability, ...(startDate && endDate && { startDate, endDate }), });
+            const params = new URLSearchParams({ 
+                page: currentPage, 
+                limit, 
+                search, 
+                region: selectedRegion, 
+                availability, 
+                spaceType, 
+                ownershipType,
+                ...(startDate && endDate && { startDate, endDate }), 
+            });
             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/spaces/listInventory?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
             if (res.status === 403) { localStorage.clear(); navigate('/login'); return; }
             const data = await res.json();
@@ -265,8 +298,28 @@ export default function InventoryDashboard() {
         } catch (error) { toast.error("Failed to fetch inventories."); }
     };
 
-    useEffect(() => { fetchSpaces(); }, [search, selectedRegion, availability, startDate, endDate, currentPage]);
+    // Re-fetch data when any filter changes
+    useEffect(() => { fetchSpaces(); }, [search, selectedRegion, availability, startDate, endDate, currentPage, spaceType, ownershipType]);
+    
+    const handleCancelDateFilter = useCallback(() => {
+        setTempDateRange(dateRange);
+        setShowDateModal(false);
+    }, [dateRange]);
 
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (datePickerRef.current && !datePickerRef.current.contains(event.target)) {
+                handleCancelDateFilter();
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [datePickerRef, handleCancelDateFilter]);
+
+
+    // --- HANDLER FUNCTIONS ---
     const handleTagUpdate = async (action, spaceId, tag) => {
         try {
             const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/spaces/${spaceId}/${action}-tag`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag }) });
@@ -276,10 +329,7 @@ export default function InventoryDashboard() {
     };
 
     const handleDownloadExcel = () => {
-        if (spaces.length === 0) {
-            toast.error("No data to download.");
-            return;
-        }
+        if (spaces.length === 0) { toast.error("No data to download."); return; }
         const excelData = spaces.map(item => ({
             'Space Name': item.spaceName, 'Address': item.address, 'City': item.city,
             'State': item.state, 'Zone': item.zone, 'Space Type': item.spaceType,
@@ -313,19 +363,30 @@ export default function InventoryDashboard() {
                 setShowUploadModal(false);
                 setSelectedFile(null);
                 fetchSpaces();
-            } else {
-                toast.error(result.error || 'Upload failed');
-            }
-        } catch (error) {
-            console.error('Upload error:', error);
-            toast.error('Something went wrong while uploading');
-        }
+            } else { toast.error(result.error || 'Upload failed'); }
+        } catch (error) { toast.error('Something went wrong while uploading'); }
     };
 
     const resetFilters = () => {
-        setSearch(''); setSelectedRegion(''); setAvailability(''); setStartDate(''); setEndDate(''); setCurrentPage(1);
+        setSearch(''); setSelectedRegion(''); setAvailability(''); setStartDate(''); setEndDate(''); setCurrentPage(1); setSpaceType(''); setOwnershipType('');
+        const initialRange = [{ startDate: null, endDate: null, key: 'selection' }];
+        setDateRange(initialRange);
+        setTempDateRange(initialRange);
     };
+    
+    const formatDate = (date) => {
+        if (!date) return '';
+        const adjustedDate = new Date(date.getTime() + Math.abs(date.getTimezoneOffset() * 60000))
+        return adjustedDate.toISOString().split('T')[0];
+    }
 
+    const handleApplyDateFilter = () => {
+        setDateRange(tempDateRange);
+        setStartDate(formatDate(tempDateRange[0].startDate));
+        setEndDate(formatDate(tempDateRange[0].endDate));
+        setShowDateModal(false);
+    }
+    
     const totalPages = Math.ceil(totalCount / limit);
 
     return (
@@ -333,7 +394,7 @@ export default function InventoryDashboard() {
             <Navbar />
             <main className="flex-1 h-screen overflow-y-auto px-4 md:px-6 py-8 ml-0 lg:ml-64">
                  <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <h2 className="text-2xl md:text-3xl font-sans font-normal">List of Spaces</h2>
+                    <h2 className="text-2xl md:text-3xl font-sans font-normal">List of Spaces</h2>
                      <div className="flex items-center gap-2">
                         <Button onClick={() => navigate('/add-space')}>+ Add Space</Button>
                         <input type="file" accept=".xlsx, .csv" id="excel-upload" onChange={(e) => {
@@ -368,16 +429,59 @@ export default function InventoryDashboard() {
                             <button onClick={resetFilters} className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-100">Reset Filters</button>
                         </div>
                     </div>
-                     <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                        <input className="px-3 py-2 border rounded-md w-full md:w-48" value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)} placeholder="City/State/Zone" />
-                        <select className="px-3 py-2 border rounded-md w-full md:w-48 bg-white" value={availability} onChange={(e) => setAvailability(e.target.value)}>
+                     <div className="mt-4 flex flex-wrap gap-3 text-sm items-center">
+                        <input className="px-3 py-2 border rounded-md w-full md:w-auto" value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)} placeholder="City/State/Zone" />
+                        
+                        <select className="px-3 py-2 border rounded-md w-full md:w-auto bg-white" value={spaceType} onChange={(e) => setSpaceType(e.target.value)}>
+                            <option value="">All Space Types</option>
+                            <option value="Billboard">Billboard</option>
+                            <option value="DOOH">DOOH</option>
+                            <option value="Pole kiosk">Pole kiosk</option>
+                            <option value="Gantry">Gantry</option>
+                        </select>
+
+                        <select className="px-3 py-2 border rounded-md w-full md:w-auto bg-white" value={ownershipType} onChange={(e) => setOwnershipType(e.target.value)}>
+                            <option value="">All Ownerships</option>
+                            <option value="Owned">Owned</option>
+                            <option value="Leased">Leased</option>
+                            <option value="Traded">Traded</option>
+                        </select>
+
+                        <select className="px-3 py-2 border rounded-md w-full md:w-auto bg-white" value={availability} onChange={(e) => setAvailability(e.target.value)}>
                             <option value="">All Availabilities</option>
                             <option value="Completely available">Completely Available</option>
                             <option value="Partially available">Partially Available</option>
                             <option value="Completely booked">Completely Booked</option>
                             <option value="Overlapping booking">Overlapping Booking</option>
                         </select>
-                        <button onClick={() => setShowDateModal(true)} className="px-4 py-2 border rounded-md hover:bg-gray-100 w-full md:w-auto">Date Filter</button>
+                        
+                        <div className="relative w-full md:w-auto">
+                            <button onClick={() => setShowDateModal(!showDateModal)} className="px-4 py-2 border rounded-md hover:bg-gray-100 w-full text-left">
+                                {startDate && endDate ? `${startDate} to ${endDate}` : "Date Filter"}
+                            </button>
+                            {showDateModal && (
+                                <div ref={datePickerRef} className="absolute top-full mt-2 z-20 bg-white rounded-xl shadow-lg border p-2">
+                                    <DateRange
+                                        editableDateInputs={true}
+                                        onChange={item => setTempDateRange([item.selection])}
+                                        moveRangeOnFirstSelection={false}
+                                        // --- THE FIX ---
+                                        // Always pass the tempDateRange state directly.
+                                        // The component is designed to handle a range object with null dates.
+                                        // The previous conditional logic was preventing the component
+                                        // from tracking the selection correctly.
+                                        ranges={tempDateRange}
+                                        rangeColors={['#000000']}
+                                        months={1}
+                                        direction="horizontal"
+                                    />
+                                    <div className="flex justify-end gap-2 p-2 border-t">
+                                        <button onClick={handleCancelDateFilter} className="px-4 py-1.5 rounded-md bg-gray-200 text-black hover:bg-gray-300 font-medium text-sm">Cancel</button>
+                                        <button onClick={handleApplyDateFilter} className="px-4 py-1.5 rounded-md bg-black text-white hover:bg-gray-800 font-medium text-sm">Apply</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 
@@ -391,7 +495,6 @@ export default function InventoryDashboard() {
                     <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                 )}
 
-                {/* Modals with full JSX to prevent syntax errors */}
                 {showUploadModal && (
                     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
                         <div className="bg-white rounded-xl shadow-lg p-6 w-96">
@@ -400,32 +503,6 @@ export default function InventoryDashboard() {
                             <div className="flex justify-end gap-2">
                                 <button onClick={() => setShowUploadModal(false)} className="px-4 py-2 rounded-md bg-gray-200 text-black hover:bg-gray-300">Cancel</button>
                                 <button onClick={handleConfirmUpload} className="px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900">Save & Upload</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {showDateModal && (
-                     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                        <div className="bg-white rounded-xl shadow-lg p-6 w-96">
-                            <h2 className="text-lg font-semibold mb-4">Select Date Range</h2>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={tempStartDate} onChange={(e) => setTempStartDate(e.target.value)} />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700">End Date</label>
-                                <input type="date" className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value={tempEndDate} onChange={(e) => setTempEndDate(e.target.value)} />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                                <button onClick={() => setShowDateModal(false)} className="px-4 py-2 rounded-md bg-gray-200 text-black hover:bg-gray-300">Cancel</button>
-                                <button
-                                    onClick={() => {
-                                        setStartDate(tempStartDate);
-                                        setEndDate(tempEndDate);
-                                        setShowDateModal(false);
-                                    }}
-                                    className="px-4 py-2 rounded-md bg-black text-white hover:bg-gray-900"
-                                >Apply</button>
                             </div>
                         </div>
                     </div>

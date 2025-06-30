@@ -33,7 +33,7 @@ app.get('/uploads/:filename', (req, res) => {
   res.download(filePath);
 });
 
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174','https://new-devangi-outdoor-1.onrender.com','https://new-devangi-outdoor.onrender.com'];
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174','https://new-devangi-outdoor-1.onrender.com','https://new-devangi-outdoor.onrender.com', 'https://devangi1.netlify.app', 'https://devangi-server.onrender.com'];
 
 app.use(cors({
   origin: function (origin, callback) {

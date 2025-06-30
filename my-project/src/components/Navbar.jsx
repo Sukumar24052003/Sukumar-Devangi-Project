@@ -48,7 +48,7 @@ export default function Navbar() {
           <div
             key={item.label}
             onClick={() => navigate(item.path)}
-            className={`cursor-pointer font-semibold px-3 pl-[10%] py-2 rounded transition ${location.pathname === item.path ? 'bg-orange-500' : 'hover:bg-gray-300 hover:text-white'}`}
+            className={`cursor-pointer font-semibold px-3 pl-[10%] py-2 rounded transition ${location.pathname === item.path ? 'bg-black-500' : 'hover:bg-gray-300 hover:text-white'}`}
           >
             <div className="flex items-center gap-3">
               <span className="text-lg">{item.icon}</span>
