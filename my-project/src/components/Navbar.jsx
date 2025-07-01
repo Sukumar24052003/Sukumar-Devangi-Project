@@ -11,13 +11,13 @@ import {
   FaChartBar,
   FaRupeeSign,
   FaImages,
-  FaBell, // Imported the bell icon
+  FaBell,
 } from 'react-icons/fa';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { auth } = useAuth(); // Get the user information from AuthContext
+  const { auth, logout } = useAuth();
 
   const navItems = [
     { label: 'Home', path: '/home', icon: <FaHome /> },
@@ -30,21 +30,17 @@ export default function Navbar() {
     { label: 'Gallery', path: '/gallery', icon: <FaImages /> },
   ];
 
-  // Array for policy links for easier management and scalability
-  const policyItems = [
-    { label: 'Privacy Policy', path: '/privacy-policy' },
-    { label: 'Cookie Policy', path: '/cookie-policy' },
-    { label: 'Disclaimer Policy', path: '/disclaimer-policy' },
-  ];
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    // Added flex and flex-col to enable pushing content to the bottom
     <aside className="w-[70%] lg:w-64 bg-[#fff] text-black py-6 space-y-4 overflow-y-auto fixed top-0 left-0 bottom-0 z-10 border border-gray-300 shadow-lg flex flex-col">
-      {/* Top section: Logo, Welcome message, and Main Navigation */}
+      {/* Top section */}
       <div>
         <div className="flex flex-col items-center ml-[5%]">
           <img className="w-[60%] mr-auto " src={logo1} alt="Logo" />
-          
           <p className="mt-4 mr-auto px-2 text-lg text-black font-semibold">Welcome, Digiplus</p>
         </div>
 
@@ -55,8 +51,8 @@ export default function Navbar() {
               onClick={() => navigate(item.path)}
               className={`cursor-pointer font-semibold px-3 pl-[10%] py-2 rounded transition ${
                 location.pathname === item.path
-                  ? 'bg-blue-600 text-white' // Style for the active link
-                  : 'hover:bg-blue-100' // Style for inactive links on hover
+                  ? 'bg-blue-600 text-white'
+                  : 'hover:bg-blue-100'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -68,20 +64,36 @@ export default function Navbar() {
         </nav>
       </div>
       
-      {/* This spacer div will grow to push the policy links to the bottom */}
+      {/* Spacer div */}
       <div className="flex-grow"></div>
 
-      {/* Bottom section: Policy links */}
-      <div className="pl-[10%] text-xs space-y-2 font-semibold">
-        {policyItems.map((policy) => (
-           <div 
-             key={policy.label}
-             onClick={() => navigate(policy.path)}
-             className="cursor-pointer px-3 py-1 hover:text-blue-600 transition"
-           >
-             {policy.label}
-           </div>
-        ))}
+      {/* 
+        Bottom section:
+        - whitespace-nowrap: Forces the text onto a single line.
+        - text-[11px]: Reduces font size to ensure the line fits within the navbar's width.
+        - pr-4: Adds padding on the right for better spacing.
+      */}
+      <div className="pl-[10%] pr-4 py-1 text-[11px] font-semibold text-slate-600 whitespace-nowrap">
+        <span
+          onClick={() => navigate('/privacy-policy')}
+          className="cursor-pointer hover:text-blue-600 transition"
+        >
+          Privacy Policy
+        </span>
+        <span className="mx-1">/</span>
+        <span
+          onClick={() => navigate('/disclaimer-policy')}
+          className="cursor-pointer hover:text-blue-600 transition"
+        >
+          Disclaimer Policy
+        </span>
+        <span className="mx-1">/</span>
+        <span
+          onClick={handleLogout}
+          className="cursor-pointer hover:text-blue-600 transition"
+        >
+          Logout
+        </span>
       </div>
     </aside>
   );
